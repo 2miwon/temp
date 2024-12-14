@@ -175,7 +175,7 @@ static void create_proc_files_for_tasks(void) {
     }
 }
 
-static void timer_callback(struct timer_list *t) {
+void timer_callback(struct timer_list *t) {
     spin_lock_irq(&my_lock);
 
     struct task_struct *task;
