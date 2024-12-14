@@ -33,6 +33,40 @@ static unsigned long last_collection_jiffies;
 #define STUDENT_ID "2019147503"
 #define STUDENT_NAME "Lim, Heewon"
 
+// 스케줄러 정보 파일 읽기 핸들러
+static int scheduler_show(struct seq_file *m, void *v) {
+    pid_t pid = *(pid_t *)v;
+    struct task_struct *task;
+
+    // 기본 정보 출력
+    seq_printf(m, "[System Programming Assignment (2024)]\n");
+    seq_printf(m, "ID: %s}\n", STUDENT_ID);
+    seq_printf(m, "Name: %s\n", STUDENT_NAME);
+    
+    // Uptime 정보 출력
+    seq_printf(m, "Current Uptime (s): %lu\n",
+               (jiffies - INITIAL_JIFFIES) / HZ);
+    
+    // 태스크 찾기
+    task = pid_task(find_vpid(pid), PIDTYPE_PID);
+    if (!task) {
+        seq_printf(m, "Invalid PID\n");
+        return 0;
+    }
+
+    // 상세 스케줄러 정보 출력
+    seq_printf(m, "--------------------------------------------------\n");
+    seq_printf(m, "Command: %s\n", task->comm);
+    seq_printf(m, "PID: %d\n", task->pid);
+    seq_printf(m, "--------------------------------------------------\n");
+    seq_printf(m, "PPID: %d\n", task->real_parent->pid);
+    seq_printf(m, "Priority: %d\n", task->prio);
+    
+    // 추가 정보 출력 로직 필요...
+
+    return 0;
+}
+
 static struct seq_operations scheduler_seq_ops = {
     .start = NULL,
     .next = NULL,
@@ -50,6 +84,28 @@ static const struct proc_ops scheduler_proc_ops = {
     .proc_lseek = seq_lseek,
     .proc_release = seq_release
 };
+
+// 메모리 정보 파일 읽기 핸들러
+static int memory_show(struct seq_file *m, void *v) {
+    pid_t pid = *(pid_t *)v;
+    struct task_struct *task;
+    struct mm_struct *mm;
+
+    // 기본 정보 및 Uptime 출력 (스케줄러와 동일)
+    
+    // 태스크 및 메모리 구조체 찾기
+    task = pid_task(find_vpid(pid), PIDTYPE_PID);
+    if (!task || !(mm = task->mm)) {
+        seq_printf(m, "Invalid PID or No Memory Map\n");
+        return 0;
+    }
+
+    // 메모리 영역별 정보 출력
+    // Code, Data, Heap, Stack 각 영역의 가상/물리 주소 변환 및 출력
+    // PGD, PUD, PMD, PTE 정보 추출 및 출력
+    
+    return 0;
+}
 
 static struct seq_operations memory_seq_ops = {
     .start = NULL,
@@ -126,63 +182,6 @@ static void timer_callback(struct timer_list *t) {
 
     // 타이머 재설정
     mod_timer(&timer, jiffies + INTERVAL);
-}
-
-// 스케줄러 정보 파일 읽기 핸들러
-static int scheduler_show(struct seq_file *m, void *v) {
-    pid_t pid = *(pid_t *)v;
-    struct task_struct *task;
-
-    // 기본 정보 출력
-    seq_printf(m, "[System Programming Assignment (2024)]\n");
-    seq_printf(m, "ID: %s}\n", STUDENT_ID);
-    seq_printf(m, "Name: %s\n", STUDENT_NAME);
-    
-    // Uptime 정보 출력
-    seq_printf(m, "Current Uptime (s): %lu\n",
-               (jiffies - INITIAL_JIFFIES) / HZ);
-    
-    // 태스크 찾기
-    task = pid_task(find_vpid(pid), PIDTYPE_PID);
-    if (!task) {
-        seq_printf(m, "Invalid PID\n");
-        return 0;
-    }
-
-    // 상세 스케줄러 정보 출력
-    seq_printf(m, "--------------------------------------------------\n");
-    seq_printf(m, "Command: %s\n", task->comm);
-    seq_printf(m, "PID: %d\n", task->pid);
-    seq_printf(m, "--------------------------------------------------\n");
-    seq_printf(m, "PPID: %d\n", task->real_parent->pid);
-    seq_printf(m, "Priority: %d\n", task->prio);
-    
-    // 추가 정보 출력 로직 필요...
-
-    return 0;
-}
-
-
-// 메모리 정보 파일 읽기 핸들러
-static int memory_show(struct seq_file *m, void *v) {
-    pid_t pid = *(pid_t *)v;
-    struct task_struct *task;
-    struct mm_struct *mm;
-
-    // 기본 정보 및 Uptime 출력 (스케줄러와 동일)
-    
-    // 태스크 및 메모리 구조체 찾기
-    task = pid_task(find_vpid(pid), PIDTYPE_PID);
-    if (!task || !(mm = task->mm)) {
-        seq_printf(m, "Invalid PID or No Memory Map\n");
-        return 0;
-    }
-
-    // 메모리 영역별 정보 출력
-    // Code, Data, Heap, Stack 각 영역의 가상/물리 주소 변환 및 출력
-    // PGD, PUD, PMD, PTE 정보 추출 및 출력
-    
-    return 0;
 }
 
 static int __init hw_init(void) {
