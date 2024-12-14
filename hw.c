@@ -21,13 +21,13 @@ MODULE_LICENSE("GPL");
 #define PROC_NAME "hw"
 #define SCHEDULER_NAME "scheduler"
 #define MEMORY_NAME "memory"
-#define INTERVAL 5 * HZ
+#define INTERVAL (5 * HZ)
 
 // 디렉토리와 파일 관련 변수
 static struct proc_dir_entry *hw_dir;
 static struct proc_dir_entry *scheduler_dir;
 static struct proc_dir_entry *memory_dir;
-static struct timer_list my_timer;
+static struct timer_list timer;
 static unsigned long last_collection_jiffies;
 
 #define STUDENT_ID "2019147503"
@@ -82,13 +82,14 @@ static void create_proc_files_for_tasks(void) {
 }
 
 static void timer_callback(struct timer_list *t) {
+    printk("Timer callback called\n");
     create_proc_files_for_tasks();
 
     // 마지막 수집 시점의 jiffies 저장
     last_collection_jiffies = jiffies;
 
     // 타이머 재설정
-    mod_timer(&my_timer, jiffies + INTERVAL);
+    mod_timer(&timer, jiffies + INTERVAL);
 }
 
 // 스케줄러 정보 파일 읽기 핸들러
@@ -208,15 +209,15 @@ static int __init hw_init(void) {
     }
 
     // 타이머 초기화
-    timer_setup(&my_timer, timer_callback, 0);
-    mod_timer(&my_timer, jiffies + INTERVAL);
+    timer_setup(&timer, timer_callback, 0);
+    mod_timer(&timer, jiffies + INTERVAL);
 
     pr_info("/proc/%s/%s and /proc/%s/%s created\n", HW_DIR, SCHEDULER_NAME, HW_DIR, MEMORY_NAME);
     return 0; 
 }
 
 static void __exit hw_exit(void) {
-    del_timer_sync(&my_timer);
+    del_timer_sync(&timer);
     remove_proc_subtree(HW_DIR, NULL);
 
     pr_info("/proc/%s/%s and /proc/%s/%s and /proc/%s removed\n", HW_DIR, SCHEDULER_NAME, HW_DIR, MEMORY_NAME, HW_DIR);
