@@ -4,6 +4,7 @@
 
 MODULE_AUTHOR("Heewon Lim");
 MODULE_DESCRIPTION("System Programming 2024 - 2019147503");
+MODULE_LICENSE("GPL");
 
 #define HW_DIR "hw"
 #define PROC_NAME "hw"
