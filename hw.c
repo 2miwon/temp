@@ -68,7 +68,7 @@ static int scheduler_show(struct seq_file *m, void *v) {
 }
 
 static int scheduler_proc_open(struct inode *inode, struct file *file) {
-    return single_open(file, scheduler_show, PDE_DATA(inode));
+    return single_open(file, scheduler_show, pde_data(inode));
 }
 
 static const struct proc_ops scheduler_fops = {
@@ -101,7 +101,7 @@ static int memory_show(struct seq_file *m, void *v) {
 }
 
 static int memory_proc_open(struct inode *inode, struct file *file) {
-    return single_open(file, memory_show, PDE_DATA(inode));
+    return single_open(file, memory_show, pde_data(inode));
 }
 
 static const struct proc_ops memory_fops = {
