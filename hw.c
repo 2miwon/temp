@@ -137,17 +137,17 @@ static void collect_scheduler_info(struct task_struct *task, struct task_info *i
     info->stime = task->stime;
     info->last_cpu = task->last_cpu;
 
-    if (task->sched_class == &fair_sched_class) {
-        strncpy(info->sched_type, "CFS", sizeof(info->sched_type));
-    } else if (task->sched_class == &rt_sched_class) {
-        strncpy(info->sched_type, "RT", sizeof(info->sched_type));
-    } else if (task->sched_class == &dl_sched_class) {
-        strncpy(info->sched_type, "DL", sizeof(info->sched_type));
-    } else if (task->sched_class == &idle_sched_class) {
-        strncpy(info->sched_type, "IDLE", sizeof(info->sched_type));
-    } else {
-        strncpy(info->sched_type, "UNKNOWN", sizeof(info->sched_type));
-    }
+    // if (task->sched_class == &fair_sched_class) {
+    //     strncpy(info->sched_type, "CFS", sizeof(info->sched_type));
+    // } else if (task->sched_class == &rt_sched_class) {
+    //     strncpy(info->sched_type, "RT", sizeof(info->sched_type));
+    // } else if (task->sched_class == &dl_sched_class) {
+    //     strncpy(info->sched_type, "DL", sizeof(info->sched_type));
+    // } else if (task->sched_class == &idle_sched_class) {
+    //     strncpy(info->sched_type, "IDLE", sizeof(info->sched_type));
+    // } else {
+    //     strncpy(info->sched_type, "UNKNOWN", sizeof(info->sched_type));
+    // }
 }
 
 static void collect_memory_info(struct seq_file *m, struct task_struct *task) {
