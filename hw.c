@@ -7,6 +7,15 @@
 #define SCHEDULER_NAME "scheduler"
 #define MEMORY_NAME "memory"
 
+static struct proc_dir_entry *hw_dir;
+static struct proc_dir_entry *scheduler_dir;
+static struct proc_dir_entry *memory_dir;
+
+// static int scheduler_show(struct seq_file *m, void *v);
+// static int memory_show(struct seq_file *m, void *v);
+// static int pid_info_open(struct inode *inode, struct file *file);
+// static int pid_info_release(struct inode *inode, struct file *file);
+
 MODULE_AUTHOR("Heewon Lim");
 MODULE_DESCRIPTION("System Programming 2024 - 2019147503");
 
