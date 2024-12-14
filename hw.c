@@ -13,6 +13,9 @@
 #include <linux/pid.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
+#include <linux/interrupt.h>
+#include <linux/vmalloc.h>
+#include <linux/mutex.h>
 
 MODULE_AUTHOR("Heewon Lim");
 MODULE_DESCRIPTION("System Programming 2024 - 2019147503");
@@ -35,22 +38,80 @@ static unsigned long last_collection_jiffies;
 #define STUDENT_ID "2019147503"
 #define STUDENT_NAME "Lim, Heewon"
 
-struct task_info {
+struct scheduler_info {
     pid_t pid;
     char comm[TASK_COMM_LEN];
     pid_t ppid;
     int prio;
-    unsigned long start_time;
-    unsigned long utime;
-    unsigned long stime;
+    unsigned long start_time_ms;
+    unsigned long utime_ms;
+    unsigned long stime_ms;
     int last_cpu;
     char sched_type[16];
+    
+    // CFS 전용 정보
+    unsigned long weight;
+    unsigned long long vruntime;
+    
     struct list_head list;
 };
 
+// 태스크 메모리 정보 구조체
+struct memory_info {
+    pid_t pid;
+    
+    // 메모리 영역 정보
+    struct {
+        unsigned long start_vaddr;
+        unsigned long end_vaddr;
+        unsigned long start_paddr;
+        unsigned long end_paddr;
+        
+        // Code 영역 전용 페이지 테이블 정보
+        struct {
+            unsigned long pgd_addr;
+            unsigned long pgd_val;
+            unsigned long pud_addr;
+            unsigned long pud_val;
+            unsigned long pmd_addr;
+            unsigned long pmd_val;
+            unsigned long pte_addr;
+            unsigned long pte_val;
+        } page_info;
+    } areas[4];  // Code, Data, Heap, Stack 순서
+
+    struct list_head list;
+};
+
+// 글로벌 리스트 헤드
+LIST_HEAD(scheduler_info_list);
+LIST_HEAD(memory_info_list);
+
 // 스케줄러 정보 파일 읽기 핸들러
 static int scheduler_show(struct seq_file *m, void *v) {
-    handle_proc_read(m);
+    spin_lock_irq(&my_lock);
+    struct task_info *info;
+
+    seq_printf(m, "[System Programming Assignment (2024)]\n");
+    seq_printf(m, "ID: %s\n", STUDENT_ID);
+    seq_printf(m, "Name: %s\n", STUDENT_NAME);
+    seq_printf(m, "Current Uptime (s): %lu\n", (jiffies - INITIAL_JIFFIES) / HZ);
+    seq_printf(m, "Last Collection Uptime (s): %lu\n", (last_collection_jiffies - INITIAL_JIFFIES) / HZ);
+
+    // list_for_each_entry(info, &task_info_list, list) {
+    //     seq_printf(m, "--------------------------------------------------\n");
+    //     seq_printf(m, "Command: %s\n", info->comm);
+    //     seq_printf(m, "PID: %d\n", info->pid);
+    //     seq_printf(m, "PPID: %d\n", info->ppid);
+    //     seq_printf(m, "Priority: %d\n", info->prio);
+    //     seq_printf(m, "Start time: %lu ms\n", info->start_time / 1000000);
+    //     seq_printf(m, "User time: %lu ms, System time: %lu ms\n", info->utime / 1000000, info->stime / 1000000);
+    //     seq_printf(m, "Last CPU: %d\n", info->last_cpu);
+    //     seq_printf(m, "Scheduler type: %s\n", info->sched_type);
+    // }
+
+    spin_unlock_irq(&my_lock);
+
     return 0;
 }
 
@@ -99,16 +160,7 @@ static const struct proc_ops memory_fops = {
 };
 
 static void collect_scheduler_info(struct task_struct *task, struct task_info *info) {
-    spin_lock(&my_lock);
-    // 기본 정보 출력
-    seq_printf(m, "[System Programming Assignment (2024)]\n");
-    seq_printf(m, "ID: %s}\n", STUDENT_ID);
-    seq_printf(m, "Name: %s\n", STUDENT_NAME);
-
-    // Uptime 정보 출력
-    seq_printf(m, "Current Uptime (s): %lu\n",
-               (jiffies - INITIAL_JIFFIES) / HZ);
-
+    spin_lock_irq(&my_lock);
     // 스케줄러 관련 정보 수집
     // info->pid = task->pid;
     // strncpy(info->comm, task->comm, TASK_COMM_LEN);
@@ -130,7 +182,7 @@ static void collect_scheduler_info(struct task_struct *task, struct task_info *i
     // } else {
     //     strncpy(info->sched_type, "UNKNOWN", sizeof(info->sched_type));
     // }
-    spin_unlock(&my_lock);
+    spin_unlock_irq(&my_lock);
 }
 
 static void collect_memory_info(struct seq_file *m, struct task_struct *task) {
@@ -144,36 +196,28 @@ static void collect_memory_info(struct seq_file *m, struct task_struct *task) {
     }
 }
 
-static void create_proc_files_for_tasks(void) {
-    spin_lock_irq(&my_lock);
+void timer_callback(struct timer_list* timer) {
+    struct task_struct* task;
+    struct scheduler_info *sched_info, *sched_tmp;
+    struct memory_info *mem_info, *mem_tmp;
+    char proc_name[16]; // PID 최대 길이
 
-    struct task_struct *task;
-    struct task_info *info;
-    char proc_name[TASK_COMM_LEN + 1]; // PID 최대 길이
+    spin_lock_irq(&my_lock);
 
     rcu_read_lock();
     for_each_process(task) {
         if (task->flags & PF_KTHREAD)
             continue; // 커널 스레드는 제외
-
-        info = kmalloc(sizeof(*info), GFP_ATOMIC);
-        if (!info)
-            continue;
-
-        collect_scheduler_info(task, info);
+        
         snprintf(proc_name, sizeof(proc_name), "%d", task->pid);
         proc_create_data(proc_name, 0644, scheduler_dir, &scheduler_fops, &task->pid);
         proc_create_data(proc_name, 0644, memory_dir, &memory_fops, &task->pid);
 
-        kfree(info);
+        // collect_scheduler_info(task, info);
+        
+        // list_add_tail(&info->list, &task_info_list);
     }
     rcu_read_unlock();
-}
-
-void timer_callback(struct timer_list* timer) {
-    spin_lock_irq(&my_lock);
-
-    create_proc_files_for_tasks();
 
     // 마지막 수집 시점의 jiffies 저장
     last_collection_jiffies = jiffies;
@@ -210,10 +254,20 @@ static int __init hw_init(void) {
     timer_setup(&timer, timer_callback, 0);
     mod_timer(&timer, jiffies);
 
+    pr_info("module inserted\n");
+
+    spin_unlock_irq(&my_lock);
     return 0;
 }
 
 static void __exit hw_exit(void) {
+    spin_lock_irq(&my_lock);
+
     del_timer_sync(&timer);
     remove_proc_subtree(HW_DIR, NULL);
+
+    spin_unlock_irq(&my_lock);
 }
+
+module_init(hw_init);
+module_exit(hw_exit);
