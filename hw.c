@@ -87,28 +87,48 @@ struct memory_info {
 LIST_HEAD(scheduler_info_list);
 LIST_HEAD(memory_info_list);
 
+static struct scheduler_info* find_scheduler_info_by_pid(pid_t pid) {\
+    struct scheduler_info *info;
+
+    list_for_each_entry(info, &scheduler_info_list, list) {
+        if (info->pid == pid) {
+            return info;
+        }
+    }
+
+    return NULL; // 해당 pid를 가진 구조체를 찾지 못한 경우
+}
+
 // 스케줄러 정보 파일 읽기 핸들러
 static int scheduler_show(struct seq_file *m, void *v) {
     spin_lock_irq(&my_lock);
-    struct task_info *info;
+    pid_t pid = *(pid_t *)m->private;
+    struct scheduler_info *info = find_scheduler_info_by_pid(pid);
 
-    seq_printf(m, "[System Programming Assignment (2024)]\n");
-    seq_printf(m, "ID: %s\n", STUDENT_ID);
-    seq_printf(m, "Name: %s\n", STUDENT_NAME);
-    seq_printf(m, "Current Uptime (s): %lu\n", (jiffies - INITIAL_JIFFIES) / HZ);
-    seq_printf(m, "Last Collection Uptime (s): %lu\n", (last_collection_jiffies - INITIAL_JIFFIES) / HZ);
-
-    // list_for_each_entry(info, &task_info_list, list) {
-    //     seq_printf(m, "--------------------------------------------------\n");
-    //     seq_printf(m, "Command: %s\n", info->comm);
-    //     seq_printf(m, "PID: %d\n", info->pid);
-    //     seq_printf(m, "PPID: %d\n", info->ppid);
-    //     seq_printf(m, "Priority: %d\n", info->prio);
-    //     seq_printf(m, "Start time: %lu ms\n", info->start_time / 1000000);
-    //     seq_printf(m, "User time: %lu ms, System time: %lu ms\n", info->utime / 1000000, info->stime / 1000000);
-    //     seq_printf(m, "Last CPU: %d\n", info->last_cpu);
-    //     seq_printf(m, "Scheduler type: %s\n", info->sched_type);
-    // }
+    if (info) {
+        seq_printf(m, "[System Programming Assignment (2024)]\n");
+        seq_printf(m, "ID: %s\n", STUDENT_ID);
+        seq_printf(m, "Name: %s\n", STUDENT_NAME);
+        seq_printf(m, "Current Uptime (s): %lu\n", (jiffies - INITIAL_JIFFIES) / HZ);
+        seq_printf(m, "Last Collection Uptime (s): %lu\n", (last_collection_jiffies - INITIAL_JIFFIES) / HZ);
+        seq_printf(m, "--------------------------------------------------\n");
+        seq_printf(m, "Command: %s\n", info->comm);
+        seq_printf(m, "PID: %d\n", pid);
+        seq_printf(m, "--------------------------------------------------\n");
+        seq_printf(m, "PPID: %d\n", info->ppid);
+        seq_printf(m, "Priority: %d\n", info->prio);
+        seq_printf(m, "Start time (ms): %lu\n", info->start_time_ms);
+        seq_printf(m, "User mode time (ms): %lu\n", info->utime_ms);
+        seq_printf(m, "System mode time (ms): %lu\n", info->stime_ms);
+        seq_printf(m, "Last CPU: %d\n", info->last_cpu);
+        seq_printf(m, "Scheduler: %s\n", info->sched_type);
+        if (info->sched_type == "CFS") {
+            seq_printf(m, "Weight: %lu\n", info->weight);
+            seq_printf(m, "Virtual Runtime: %llu\n", info->vruntime);
+        }
+    } else {
+        seq_printf(m, "Invalid PID\n");
+    }
 
     spin_unlock_irq(&my_lock);
 
@@ -128,22 +148,31 @@ static const struct proc_ops scheduler_fops = {
 
 // 메모리 정보 파일 읽기 핸들러
 static int memory_show(struct seq_file *m, void *v) {
-    pid_t pid = *(pid_t *)v;
-    struct task_struct *task;
-    struct mm_struct *mm;
+    spin_lock_irq(&my_lock);
+    // struct memory_info *mem_info;
+    // pid_t pid = *(pid_t *)v;
+    // struct task_struct *task;
+    // struct mm_struct *mm;    
 
-    // 기본 정보 및 Uptime 출력 (스케줄러와 동일)
+    seq_printf(m, "[System Programming Assignment (2024)]\n");
+    seq_printf(m, "ID: %s\n", STUDENT_ID);
+    seq_printf(m, "Name: %s\n", STUDENT_NAME);
+    seq_printf(m, "Current Uptime (s): %lu\n", (jiffies - INITIAL_JIFFIES) / HZ);
+    seq_printf(m, "Last Collection Uptime (s): %lu\n", (last_collection_jiffies - INITIAL_JIFFIES) / HZ);
+    seq_printf(m, "--------------------------------------------------\n");
 
     // 태스크 및 메모리 구조체 찾기
-    task = pid_task(find_vpid(pid), PIDTYPE_PID);
-    if (!task || !(mm = task->mm)) {
-        seq_printf(m, "Invalid PID or No Memory Map\n");
-        return 0;
-    }
+    // task = pid_task(find_vpid(pid), PIDTYPE_PID);
+    // if (!task || !(mm = task->mm)) {
+    //     seq_printf(m, "Invalid PID or No Memory Map\n");
+    //     return 0;
+    // }
 
     // 메모리 영역별 정보 출력
     // Code, Data, Heap, Stack 각 영역의 가상/물리 주소 변환 및 출력
     // PGD, PUD, PMD, PTE 정보 추출 및 출력
+
+    spin_unlock_irq(&my_lock);
 
     return 0;
 }
@@ -159,30 +188,44 @@ static const struct proc_ops memory_fops = {
     .proc_release = seq_release
 };
 
-static void collect_scheduler_info(struct task_struct *task, struct task_info *info) {
-    spin_lock_irq(&my_lock);
-    // 스케줄러 관련 정보 수집
-    // info->pid = task->pid;
-    // strncpy(info->comm, task->comm, TASK_COMM_LEN);
-    // info->ppid = task->real_parent->pid;
-    // info->prio = task->prio;
-    // info->start_time = task->start_time;
-    // info->utime = task->utime;
-    // info->stime = task->stime;
-    // info->last_cpu = task->last_cpu;
+static void collect_scheduler_info(struct task_struct *task) {    
+    struct scheduler_info *sched_info = kmalloc(sizeof(struct scheduler_info), GFP_ATOMIC);
+    if (!sched_info) {
+        pr_err("Failed to allocate memory for scheduler_info\n");
+        spin_unlock_irq(&my_lock);
+        return;
+    }
 
-    // if (task->sched_class == &fair_sched_class) {
-    //     strncpy(info->sched_type, "CFS", sizeof(info->sched_type));
-    // } else if (task->sched_class == &rt_sched_class) {
-    //     strncpy(info->sched_type, "RT", sizeof(info->sched_type));
-    // } else if (task->sched_class == &dl_sched_class) {
-    //     strncpy(info->sched_type, "DL", sizeof(info->sched_type));
-    // } else if (task->sched_class == &idle_sched_class) {
-    //     strncpy(info->sched_type, "IDLE", sizeof(info->sched_type));
-    // } else {
-    //     strncpy(info->sched_type, "UNKNOWN", sizeof(info->sched_type));
-    // }
-    spin_unlock_irq(&my_lock);
+    sched_info->pid = task->pid;
+    get_task_comm(sched_info->comm, task);
+    sched_info->ppid = task->parent->pid;
+    sched_info->prio = task->prio;
+    sched_info->start_time_ms = task->start_time / HZ;
+    sched_info->utime_ms = task->utime / HZ;
+    sched_info->stime_ms = task->stime / HZ;
+    // sched_info->last_cpu = task_cpu(task);
+    sched_info->last_cpu = task->recent_used_cpu;
+
+    if (task->sched_class == SCHED_FIFO) {
+        strcpy(sched_info->sched_type, "RT");
+    } else if (task->sched_class == SCHED_NORMAL) {
+        strcpy(sched_info->sched_type, "CFS");
+    } else if (task->sched_class == SCHED_DEADLINE) {
+        strcpy(sched_info->sched_type, "DL");
+    } else if (task->sched_class == SCHED_IDLE) {
+        strcpy(sched_info->sched_type, "IDLE");
+    } else {
+        strcpy(sched_info->sched_type, "UNKNOWN");
+    }
+
+    // CFS 전용 정보 수집
+    if (task->sched_class == SCHED_NORMAL) {
+        struct sched_entity *se = &task->se;
+        sched_info->weight = se->load.weight;
+        sched_info->vruntime = se->vruntime;
+    }
+
+    list_add_tail(&sched_info->list, &scheduler_info_list);
 }
 
 static void collect_memory_info(struct seq_file *m, struct task_struct *task) {
@@ -196,26 +239,46 @@ static void collect_memory_info(struct seq_file *m, struct task_struct *task) {
     }
 }
 
+void remove_files_and_clear_info_list(void) {
+    struct scheduler_info *scehd_entry, *scehd_tmp;
+    struct memory_info *mem_entry, *mem_tmp;
+
+    list_for_each_entry_safe(scehd_entry, scehd_tmp, &scheduler_info_list, list) {
+        char proc_name[16];
+        snprintf(proc_name, sizeof(proc_name), "%d", scehd_entry->pid);
+        remove_proc_entry(proc_name, scheduler_dir);
+        list_del(&scehd_entry->list);
+        kfree(scehd_entry);
+    }
+
+    list_for_each_entry_safe(mem_entry, mem_tmp, &memory_info_list, list) {
+        char proc_name[16];
+        snprintf(proc_name, sizeof(proc_name), "%d", mem_entry->pid);
+        remove_proc_entry(proc_name, memory_dir);  // memory_dir은 해당 디렉토리
+        list_del(&mem_entry->list);
+        kfree(mem_entry);
+    }
+}
+
 void timer_callback(struct timer_list* timer) {
     struct task_struct* task;
-    struct scheduler_info *sched_info, *sched_tmp;
     struct memory_info *mem_info, *mem_tmp;
     char proc_name[16]; // PID 최대 길이
 
     spin_lock_irq(&my_lock);
 
+    remove_files_and_clear_info_list();
+
     rcu_read_lock();
     for_each_process(task) {
         if (task->flags & PF_KTHREAD)
             continue; // 커널 스레드는 제외
-        
+
         snprintf(proc_name, sizeof(proc_name), "%d", task->pid);
         proc_create_data(proc_name, 0644, scheduler_dir, &scheduler_fops, &task->pid);
         proc_create_data(proc_name, 0644, memory_dir, &memory_fops, &task->pid);
 
-        // collect_scheduler_info(task, info);
-        
-        // list_add_tail(&info->list, &task_info_list);
+        collect_scheduler_info(task);
     }
     rcu_read_unlock();
 
@@ -233,6 +296,7 @@ static int __init hw_init(void) {
     hw_dir = proc_mkdir(HW_DIR, NULL);
     if (!hw_dir) {
         pr_err("Failed to create /proc/%s directory\n", HW_DIR);
+        spin_unlock_irq(&my_lock);
         return -ENOMEM;
     }
 
@@ -240,6 +304,7 @@ static int __init hw_init(void) {
     scheduler_dir = proc_mkdir(SCHEDULER_NAME, hw_dir);
     if (!scheduler_dir) {
         pr_err("Failed to create /proc/%s/%s directory\n", HW_DIR, SCHEDULER_NAME);
+        spin_unlock_irq(&my_lock);
         return -ENOMEM;
     }
 
@@ -247,6 +312,7 @@ static int __init hw_init(void) {
     memory_dir = proc_mkdir(MEMORY_NAME, hw_dir);
     if (!memory_dir) {
         pr_err("Failed to create /proc/%s/%s directory\n", HW_DIR, MEMORY_NAME);
+        spin_unlock_irq(&my_lock);
         return -ENOMEM;
     }
 
