@@ -28,6 +28,7 @@ static struct proc_dir_entry *hw_dir;
 static struct proc_dir_entry *scheduler_dir;
 static struct proc_dir_entry *memory_dir;
 static struct timer_list my_timer;
+static unsigned long last_collection_jiffies;
 
 #define STUDENT_ID "2019147503"
 #define STUDENT_NAME "Lim, Heewon"
@@ -65,7 +66,7 @@ static void collect_memory_info(struct seq_file *m, struct task_struct *task) {
     }
 }
 
-static void my_timer_callback(struct timer_list *t) {
+static void timer_callback(struct timer_list *t) {
     struct task_struct *task;
     struct seq_file *m;
     char *buf;
@@ -88,6 +89,9 @@ static void my_timer_callback(struct timer_list *t) {
 
     kfree(buf);
 
+    // 마지막 수집 시점의 jiffies 저장
+    last_collection_jiffies = jiffies;
+
     // 타이머 재설정
     mod_timer(&my_timer, jiffies + INTERVAL);
 }
@@ -103,8 +107,8 @@ static int scheduler_show(struct seq_file *m, void *v) {
     seq_printf(m, "Name: %s\n", STUDENT_NAME);
     
     // Uptime 정보 출력
-    seq_printf(m, "Current Uptime (s): %lu\n", 
-               jiffies_to_seconds(jiffies));
+    seq_printf(m, "Current Uptime (s): %lu\n",
+               (jiffies - INITIAL_JIFFIES) / HZ);
     
     // 태스크 찾기
     task = pid_task(find_vpid(pid), PIDTYPE_PID);
