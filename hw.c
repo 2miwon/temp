@@ -34,7 +34,7 @@ static unsigned long last_collection_jiffies;
 #define STUDENT_NAME "Lim, Heewon"
 
 // 스케줄러 정보 파일 읽기 핸들러
-static int scheduler_show(struct seq_file *m, void *v) {
+static int scheduler_open(struct seq_file *m, void *v) {
     pid_t pid = *(pid_t *)v;
     struct task_struct *task;
 
@@ -55,30 +55,23 @@ static int scheduler_show(struct seq_file *m, void *v) {
     }
 
     // 상세 스케줄러 정보 출력
-    seq_printf(m, "--------------------------------------------------\n");
-    seq_printf(m, "Command: %s\n", task->comm);
-    seq_printf(m, "PID: %d\n", task->pid);
-    seq_printf(m, "--------------------------------------------------\n");
-    seq_printf(m, "PPID: %d\n", task->real_parent->pid);
-    seq_printf(m, "Priority: %d\n", task->prio);
+    // seq_printf(m, "--------------------------------------------------\n");
+    // seq_printf(m, "Command: %s\n", task->comm);
+    // seq_printf(m, "PID: %d\n", task->pid);
+    // seq_printf(m, "--------------------------------------------------\n");
+    // seq_printf(m, "PPID: %d\n", task->real_parent->pid);
+    // seq_printf(m, "Priority: %d\n", task->prio);
     
     // 추가 정보 출력 로직 필요...
 
     return 0;
 }
 
-static struct seq_operations scheduler_seq_ops = {
-    .start = NULL,
-    .next = NULL,
-    .stop = NULL,
-    .show = scheduler_show
-};
-
 static int scheduler_proc_open(struct inode *inode, struct file *file) {
-    return seq_open(file, &scheduler_seq_ops);
+    return single_open(file, scheduler_show, PDE_DATA(inode));
 }
 
-static const struct proc_ops scheduler_proc_ops = {
+static const struct proc_ops scheduler_fops = {
     .proc_open = scheduler_proc_open,
     .proc_read = seq_read,
     .proc_lseek = seq_lseek,
@@ -86,7 +79,7 @@ static const struct proc_ops scheduler_proc_ops = {
 };
 
 // 메모리 정보 파일 읽기 핸들러
-static int memory_show(struct seq_file *m, void *v) {
+static int memory_open(struct seq_file *m, void *v) {
     pid_t pid = *(pid_t *)v;
     struct task_struct *task;
     struct mm_struct *mm;
@@ -107,15 +100,8 @@ static int memory_show(struct seq_file *m, void *v) {
     return 0;
 }
 
-static struct seq_operations memory_seq_ops = {
-    .start = NULL,
-    .next = NULL,
-    .stop = NULL,
-    .show = memory_show
-};
-
 static int memory_proc_open(struct inode *inode, struct file *file) {
-    return seq_open(file, &memory_seq_ops);
+    return single_open(file, memory_show, PDE_DATA(inode));
 }
 
 static const struct proc_ops memory_proc_ops = {
