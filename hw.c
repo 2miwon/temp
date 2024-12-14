@@ -7,14 +7,33 @@
 #define SCHEDULER_NAME "scheduler"
 #define MEMORY_NAME "memory"
 
+// 디렉토리와 파일 관련 변수
 static struct proc_dir_entry *hw_dir;
 static struct proc_dir_entry *scheduler_dir;
 static struct proc_dir_entry *memory_dir;
 
-// static int scheduler_show(struct seq_file *m, void *v);
-// static int memory_show(struct seq_file *m, void *v);
-// static int pid_info_open(struct inode *inode, struct file *file);
-// static int pid_info_release(struct inode *inode, struct file *file);
+static int scheduler_show(struct seq_file *m, void *v);
+static int memory_show(struct seq_file *m, void *v);
+static int pid_info_open(struct inode *inode, struct file *file);
+static int pid_info_release(struct inode *inode, struct file *file);
+
+// 프로시저 파일 구조체
+static const struct file_operations scheduler_fops = {
+    .owner = THIS_MODULE,
+    .open = pid_info_open,
+    .read = seq_read,
+    .llseek = seq_lseek,
+    .release = pid_info_release,
+};
+
+static const struct file_operations memory_fops = {
+    .owner = THIS_MODULE,
+    .open = pid_info_open,
+    .read = seq_read,
+    .llseek = seq_lseek,
+    .release = pid_info_release,
+};
+
 
 MODULE_AUTHOR("Heewon Lim");
 MODULE_DESCRIPTION("System Programming 2024 - 2019147503");
