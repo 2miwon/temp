@@ -42,17 +42,17 @@ static void collect_scheduler_info(struct seq_file *m, struct task_struct *task)
                task->utime / 1000000, task->stime / 1000000);
     seq_printf(m, "Last CPU: %d\n", task->last_cpu);
     // 스케줄러 타입 정보 추가
-    if (task->sched_class == &fair_sched_class) {
-        seq_printf(m, "Scheduler type: CFS\n");
-        seq_printf(m, "Weight: %d, Virtual runtime: %llu\n",
-                   task->se.load.weight, task->se.vruntime);
-    } else if (task->sched_class == &rt_sched_class) {
-        seq_printf(m, "Scheduler type: RT\n");
-    } else if (task->sched_class == &dl_sched_class) {
-        seq_printf(m, "Scheduler type: DL\n");
-    } else if (task->sched_class == &idle_sched_class) {
-        seq_printf(m, "Scheduler type: IDLE\n");
-    }
+    // if (task->sched_class == &fair_sched_class) {
+    //     seq_printf(m, "Scheduler type: CFS\n");
+    //     seq_printf(m, "Weight: %d, Virtual runtime: %llu\n",
+    //                task->se.load.weight, task->se.vruntime);
+    // } else if (task->sched_class == &rt_sched_class) {
+    //     seq_printf(m, "Scheduler type: RT\n");
+    // } else if (task->sched_class == &dl_sched_class) {
+    //     seq_printf(m, "Scheduler type: DL\n");
+    // } else if (task->sched_class == &idle_sched_class) {
+    //     seq_printf(m, "Scheduler type: IDLE\n");
+    // }
 }
 
 static void collect_memory_info(struct seq_file *m, struct task_struct *task) {
@@ -158,7 +158,7 @@ static struct seq_operations scheduler_seq_ops = {
     .start = NULL,
     .next = NULL,
     .stop = NULL,
-    .show = NULL
+    .show = scheduler_show
 };
 
 static int scheduler_proc_open(struct inode *inode, struct file *file) {
@@ -167,6 +167,24 @@ static int scheduler_proc_open(struct inode *inode, struct file *file) {
 
 static const struct proc_ops scheduler_proc_ops = {
     .proc_open = scheduler_proc_open,
+    .proc_read = seq_read,
+    .proc_lseek = seq_lseek,
+    .proc_release = seq_release
+};
+
+static struct seq_operations memory_seq_ops = {
+    .start = NULL,
+    .next = NULL,
+    .stop = NULL,
+    .show = memory_show
+};
+
+statuc int memory_proc_open(struct inode *inode, struct file *file) {
+    return seq_open(file, &memory_seq_ops);
+}
+
+static const struct proc_ops memory_proc_ops = {
+    .proc_open = memory_proc_open,
     .proc_read = seq_read,
     .proc_lseek = seq_lseek,
     .proc_release = seq_release
