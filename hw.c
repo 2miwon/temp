@@ -40,7 +40,7 @@ static void collect_scheduler_info(struct seq_file *m, struct task_struct *task)
     seq_printf(m, "Start time: %llu ms\n", task->start_time / 1000000);
     seq_printf(m, "User time: %llu ms, System time: %llu ms\n",
                task->utime / 1000000, task->stime / 1000000);
-    seq_printf(m, "Last CPU: %d\n", task->last_cpu);
+    // seq_printf(m, "Last CPU: %d\n", task->last_cpu);
     // 스케줄러 타입 정보 추가
     // if (task->sched_class == &fair_sched_class) {
     //     seq_printf(m, "Scheduler type: CFS\n");
