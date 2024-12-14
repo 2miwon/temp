@@ -210,7 +210,7 @@ static int __init hw_init(void) {
 
     // 타이머 초기화
     timer_setup(&timer, timer_callback, 0);
-    mod_timer(&timer, jiffies + INTERVAL);
+    mod_timer(&timer, jiffies);
 
     pr_info("/proc/%s/%s and /proc/%s/%s created\n", HW_DIR, SCHEDULER_NAME, HW_DIR, MEMORY_NAME);
     return 0; 

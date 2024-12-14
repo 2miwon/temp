@@ -1,2 +1,2 @@
 sudo rmmod hw
-sudo insmod hw.ko
+make & sudo insmod hw.ko
