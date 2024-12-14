@@ -179,7 +179,7 @@ static struct seq_operations memory_seq_ops = {
     .show = memory_show
 };
 
-statuc int memory_proc_open(struct inode *inode, struct file *file) {
+static int memory_proc_open(struct inode *inode, struct file *file) {
     return seq_open(file, &memory_seq_ops);
 }
 
