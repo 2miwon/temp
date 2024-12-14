@@ -35,7 +35,7 @@ static int __init init(void) {
     }
 
     // memory 디렉토리 생성
-    memory_dir = proc_mkdir(MEMORY_DIR, hw_dir);
+    memory_dir = proc_mkdir(MEMORY_NAME, hw_dir);
     if (!memory_dir) {
         pr_err("Failed to create /proc/%s/%s directory\n", HW_DIR, MEMORY_NAME);
         return -ENOMEM;
