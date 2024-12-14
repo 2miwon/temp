@@ -75,7 +75,9 @@ static void create_proc_files_for_tasks(void) {
             continue; // 커널 스레드는 제외
 
         snprintf(proc_name, sizeof(proc_name), "%d", task->pid);
+        printk("Creating /proc/%s/%s and /proc/%s/%s\n", HW_DIR, SCHEDULER_NAME, HW_DIR, MEMORY_NAME);
         proc_create_data(proc_name, 0644, scheduler_dir, &scheduler_proc_ops, &task->pid);
+        proc_create_data(proc_name, 0644, memory_dir, &memory_proc_ops, &task->pid);
     }
 }
 
