@@ -1,6 +1,17 @@
 #include <linux/module.h>
+#include <linux/kernel.h>
+#include <linux/init.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
+#include <linux/sched.h>
+#include <linux/sched/signal.h>
+#include <linux/timer.h>
+#include <linux/jiffies.h>
+#include <linux/uaccess.h>
+#include <linux/mm.h>
+#include <linux/mm_types.h>
+#include <linux/pid.h>
+#include <linux/slab.h>
 
 MODULE_AUTHOR("Heewon Lim");
 MODULE_DESCRIPTION("System Programming 2024 - 2019147503");
@@ -10,70 +21,96 @@ MODULE_LICENSE("GPL");
 #define PROC_NAME "hw"
 #define SCHEDULER_NAME "scheduler"
 #define MEMORY_NAME "memory"
+#define INTERVAL 5 * HZ
 
 // 디렉토리와 파일 관련 변수
 static struct proc_dir_entry *hw_dir;
 static struct proc_dir_entry *scheduler_dir;
 static struct proc_dir_entry *memory_dir;
+static struct timer_list my_timer;
 
-// static int scheduler_show(struct seq_file *m, void *v);
-// static int memory_show(struct seq_file *m, void *v);
-// static int pid_info_open(struct inode *inode, struct file *file);
-// static int pid_info_release(struct inode *inode, struct file *file);
+#define STUDENT_ID "2019147503"
+#define STUDENT_NAME "Lim, Heewon"
 
-// // 프로시저 파일 구조체
-// static const struct file_operations scheduler_fops = {
-//     .owner = THIS_MODULE,
-//     .open = pid_info_open,
-//     .read = seq_read,
-//     .llseek = seq_lseek,
-//     .release = pid_info_release,
-// };
+static void collect_scheduler_info(struct seq_file *m, struct task_struct *task) {
+    // 스케줄러 관련 정보 수집
+    seq_printf(m, "Task: %s, PID: %d, PPID: %d, Priority: %d\n",
+               task->comm, task->pid, task->real_parent->pid, task->prio);
+    seq_printf(m, "Start time: %llu ms\n", task->start_time / 1000000);
+    seq_printf(m, "User time: %llu ms, System time: %llu ms\n",
+               task->utime / 1000000, task->stime / 1000000);
+    seq_printf(m, "Last CPU: %d\n", task->last_cpu);
+    // 스케줄러 타입 정보 추가
+    if (task->sched_class == &fair_sched_class) {
+        seq_printf(m, "Scheduler type: CFS\n");
+        seq_printf(m, "Weight: %d, Virtual runtime: %llu\n",
+                   task->se.load.weight, task->se.vruntime);
+    } else if (task->sched_class == &rt_sched_class) {
+        seq_printf(m, "Scheduler type: RT\n");
+    } else if (task->sched_class == &dl_sched_class) {
+        seq_printf(m, "Scheduler type: DL\n");
+    } else if (task->sched_class == &idle_sched_class) {
+        seq_printf(m, "Scheduler type: IDLE\n");
+    }
+}
 
-// static const struct file_operations memory_fops = {
-//     .owner = THIS_MODULE,
-//     .open = pid_info_open,
-//     .read = seq_read,
-//     .llseek = seq_lseek,
-//     .release = pid_info_release,
-// };
+static void collect_memory_info(struct seq_file *m, struct task_struct *task) {
+    // 메모리 관련 정보 수집
+    struct mm_struct *mm = task->mm;
+    if (mm) {
+        seq_printf(m, "Code start: %lx, Code end: %lx\n", mm->start_code, mm->end_code);
+        seq_printf(m, "Data start: %lx, Data end: %lx\n", mm->start_data, mm->end_data);
+        seq_printf(m, "Heap start: %lx, Heap end: %lx\n", mm->start_brk, mm->brk);
+        seq_printf(m, "Stack start: %lx\n", mm->start_stack);
+    }
+}
 
-// 파일에서 PID를 읽어오는 함수
-// static int pid_info_show(struct seq_file *m, void *v, const char *type)
-// {
-//     pid_t pid;
-//     struct task_struct *task;
-    
-//     // PID 읽기
-//     pid = simple_strtol((char *)v, NULL, 10);
-//     task = pid_task(find_vpid(pid), PIDTYPE_PID);
-    
-//     if (!task) {
-//         seq_printf(m, "Invalid PID\n");
-//         return 0;
-//     }
-    
-//     if (strcmp(type, "scheduler") == 0) {
-//         // 스케줄러 관련 정보 출력 예시 (간단한 스케줄러 정보 출력)
-//         seq_printf(m, "PID: %d, State: %ld\n", pid, task->state);
-//         // 실제로는 여기서 스케줄러 정보 등을 출력해야 함
-//     } else if (strcmp(type, "memory") == 0) {
-//         // 메모리 관련 정보 출력 예시 (간단한 메모리 정보 출력)
-//         seq_printf(m, "PID: %d, Memory: %ld kB\n", pid, task->mm->total_vm * 4);  // 예시로 메모리 사용량 출력
-//     }
+static void my_timer_callback(struct timer_list *t) {
+    struct task_struct *task;
+    struct seq_file *m;
+    char *buf;
+    size_t buf_size = 4096;
 
-//     return 0;
-// }
+    buf = kmalloc(buf_size, GFP_KERNEL);
+    if (!buf) {
+        pr_err("Failed to allocate memory for buffer\n");
+        return;
+    }
 
-// static int pid_info_open(struct inode *inode, struct file *file)
-// {
-//     return single_open(file, pid_info_show, PDE_DATA(inode));
-// }
+    m = (struct seq_file *)buf;
+    for_each_process(task) {
+        if (task->flags & PF_KTHREAD)
+            continue; // 커널 스레드는 제외
 
-// static int pid_info_release(struct inode *inode, struct file *file)
-// {
-//     return single_release(inode, file);
-// }
+        collect_scheduler_info(m, task);
+        collect_memory_info(m, task);
+    }
+
+    kfree(buf);
+
+    // 타이머 재설정
+    mod_timer(&my_timer, jiffies + INTERVAL);
+}
+
+static struct seq_operations scheduler_seq_ops = {
+    .start = NULL,
+    .next = NULL,
+    .stop = NULL,
+    .show = NULL
+};
+
+static int scheduler_proc_open(struct inode *inode, struct file *file) {
+    seq_printf("[System Programming Assignment (2024)]\n");
+    seq_printf(file, "Student ID: %s\n", STUDENT_ID);
+    return seq_open(file, &scheduler_seq_ops);
+}
+
+static const struct proc_ops scheduler_proc_ops = {
+    .proc_open = scheduler_proc_open,
+    .proc_read = seq_read,
+    .proc_lseek = seq_lseek,
+    .proc_release = seq_release
+};
 
 static int __init hw_init(void) {
     // hw 디렉토리 생성
@@ -97,27 +134,17 @@ static int __init hw_init(void) {
         return -ENOMEM;
     }
 
-    // PID 관련 파일 생성 (scheduler와 memory에 대해 각각)
-    // if (!proc_create_data(SCHEDULER_NAME, 0, NULL, "scheduler")) {
-    //     pr_err("Failed to create /proc/%s/%s/1234 file\n", HW_DIR, &scheduler_fops);
-    //     return -ENOMEM;
-    // }
+    // 타이머 초기화
+    timer_setup(&my_timer, my_timer_callback, 0);
+    mod_timer(&my_timer, jiffies + INTERVAL);
 
-    // if (!proc_create_data(MEMORY_NAME, 0, NULL, "memory")) {
-    //     pr_err("Failed to create /proc/%s/%s/1234 file\n", HW_DIR, MEMORY_NAME);
-    //     return -ENOMEM;
-    // }
-
+    pr_info("/proc/%s/%s and /proc/%s/%s created\n", HW_DIR, SCHEDULER_NAME, HW_DIR, MEMORY_NAME);
     return 0; 
 }
 
 static void __exit hw_exit(void) {
-    // /proc 디렉토리와 파일 삭제
-    remove_proc_entry(SCHEDULER_NAME, scheduler_dir);
-    remove_proc_entry(MEMORY_NAME, memory_dir);
-    remove_proc_entry(SCHEDULER_NAME, hw_dir);
-    remove_proc_entry(MEMORY_NAME, hw_dir);
-    remove_proc_entry(HW_DIR, NULL);
+    del_timer_sync(&my_timer);
+    remove_proc_subtree(HW_DIR, NULL);
 
     pr_info("/proc/%s/%s and /proc/%s/%s and /proc/%s removed\n", HW_DIR, SCHEDULER_NAME, HW_DIR, MEMORY_NAME, HW_DIR);
 }
