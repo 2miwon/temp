@@ -97,15 +97,15 @@ static int __init hw_init(void) {
     }
 
     // PID 관련 파일 생성 (scheduler와 memory에 대해 각각)
-    if (!proc_create_data(SCHEDULER_NAME, 0, scheduler_dir, NULL, "scheduler")) {
-        pr_err("Failed to create /proc/%s/%s/1234 file\n", HW_DIR, SCHEDULER_NAME);
-        return -ENOMEM;
-    }
+    // if (!proc_create_data(SCHEDULER_NAME, 0, NULL, "scheduler")) {
+    //     pr_err("Failed to create /proc/%s/%s/1234 file\n", HW_DIR, &scheduler_fops);
+    //     return -ENOMEM;
+    // }
 
-    if (!proc_create_data(MEMORY_NAME, 0, memory_dir, NULL, "memory")) {
-        pr_err("Failed to create /proc/%s/%s/1234 file\n", HW_DIR, MEMORY_NAME);
-        return -ENOMEM;
-    }
+    // if (!proc_create_data(MEMORY_NAME, 0, NULL, "memory")) {
+    //     pr_err("Failed to create /proc/%s/%s/1234 file\n", HW_DIR, MEMORY_NAME);
+    //     return -ENOMEM;
+    // }
 
     return 0; 
 }
