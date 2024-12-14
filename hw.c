@@ -160,7 +160,7 @@ static void create_proc_files_for_tasks(void) {
 }
 
 static void timer_callback(struct timer_list *t) {
-    printk("Timer callback called\n");
+    printk("Timer callback called at jiffies %lu\n", jiffies);
     create_proc_files_for_tasks();
 
     // 마지막 수집 시점의 jiffies 저장
