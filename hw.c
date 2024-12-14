@@ -33,6 +33,42 @@ static unsigned long last_collection_jiffies;
 #define STUDENT_ID "2019147503"
 #define STUDENT_NAME "Lim, Heewon"
 
+static struct seq_operations scheduler_seq_ops = {
+    .start = NULL,
+    .next = NULL,
+    .stop = NULL,
+    .show = scheduler_show
+};
+
+static int scheduler_proc_open(struct inode *inode, struct file *file) {
+    return seq_open(file, &scheduler_seq_ops);
+}
+
+static const struct proc_ops scheduler_proc_ops = {
+    .proc_open = scheduler_proc_open,
+    .proc_read = seq_read,
+    .proc_lseek = seq_lseek,
+    .proc_release = seq_release
+};
+
+static struct seq_operations memory_seq_ops = {
+    .start = NULL,
+    .next = NULL,
+    .stop = NULL,
+    .show = memory_show
+};
+
+static int memory_proc_open(struct inode *inode, struct file *file) {
+    return seq_open(file, &memory_seq_ops);
+}
+
+static const struct proc_ops memory_proc_ops = {
+    .proc_open = memory_proc_open,
+    .proc_read = seq_read,
+    .proc_lseek = seq_lseek,
+    .proc_release = seq_release
+};
+
 static void collect_scheduler_info(struct seq_file *m, struct task_struct *task) {
     // 스케줄러 관련 정보 수집
     seq_printf(m, "Task: %s, PID: %d, PPID: %d, Priority: %d\n",
@@ -148,43 +184,6 @@ static int memory_show(struct seq_file *m, void *v) {
     
     return 0;
 }
-
-
-static struct seq_operations scheduler_seq_ops = {
-    .start = NULL,
-    .next = NULL,
-    .stop = NULL,
-    .show = scheduler_show
-};
-
-static int scheduler_proc_open(struct inode *inode, struct file *file) {
-    return seq_open(file, &scheduler_seq_ops);
-}
-
-static const struct proc_ops scheduler_proc_ops = {
-    .proc_open = scheduler_proc_open,
-    .proc_read = seq_read,
-    .proc_lseek = seq_lseek,
-    .proc_release = seq_release
-};
-
-static struct seq_operations memory_seq_ops = {
-    .start = NULL,
-    .next = NULL,
-    .stop = NULL,
-    .show = memory_show
-};
-
-static int memory_proc_open(struct inode *inode, struct file *file) {
-    return seq_open(file, &memory_seq_ops);
-}
-
-static const struct proc_ops memory_proc_ops = {
-    .proc_open = memory_proc_open,
-    .proc_read = seq_read,
-    .proc_lseek = seq_lseek,
-    .proc_release = seq_release
-};
 
 static int __init hw_init(void) {
     // hw 디렉토리 생성
