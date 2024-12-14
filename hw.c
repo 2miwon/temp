@@ -34,7 +34,7 @@ static unsigned long last_collection_jiffies;
 #define STUDENT_NAME "Lim, Heewon"
 
 // 스케줄러 정보 파일 읽기 핸들러
-static int scheduler_open(struct seq_file *m, void *v) {
+static int scheduler_show(struct seq_file *m, void *v) {
     pid_t pid = *(pid_t *)v;
     struct task_struct *task;
 
@@ -79,7 +79,7 @@ static const struct proc_ops scheduler_fops = {
 };
 
 // 메모리 정보 파일 읽기 핸들러
-static int memory_open(struct seq_file *m, void *v) {
+static int memory_show(struct seq_file *m, void *v) {
     pid_t pid = *(pid_t *)v;
     struct task_struct *task;
     struct mm_struct *mm;
@@ -104,7 +104,7 @@ static int memory_proc_open(struct inode *inode, struct file *file) {
     return single_open(file, memory_show, PDE_DATA(inode));
 }
 
-static const struct proc_ops memory_proc_ops = {
+static const struct proc_ops memory_fops = {
     .proc_open = memory_proc_open,
     .proc_read = seq_read,
     .proc_lseek = seq_lseek,
@@ -154,8 +154,8 @@ static void create_proc_files_for_tasks(void) {
 
         snprintf(proc_name, sizeof(proc_name), "%d", task->pid);
         printk("Creating /proc/%s/%s and /proc/%s/%s\n", HW_DIR, SCHEDULER_NAME, HW_DIR, MEMORY_NAME);
-        proc_create_data(proc_name, 0644, scheduler_dir, &scheduler_proc_ops, &task->pid);
-        proc_create_data(proc_name, 0644, memory_dir, &memory_proc_ops, &task->pid);
+        proc_create_data(proc_name, 0644, scheduler_dir, &scheduler_fops, &task->pid);
+        proc_create_data(proc_name, 0644, memory_dir, &memory_fops, &task->pid);
     }
 }
 
