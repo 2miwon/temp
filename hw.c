@@ -121,5 +121,5 @@ static void __exit hw_exit(void) {
     pr_info("/proc/%s/%s and /proc/%s/%s and /proc/%s removed\n", HW_DIR, SCHEDULER_NAME, HW_DIR, MEMORY_NAME, HW_DIR);
 }
 
-module_init(init);
-module_exit(exit);
+module_init(hw_init);
+module_exit(hw_exit);
