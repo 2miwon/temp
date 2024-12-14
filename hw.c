@@ -176,6 +176,8 @@ static void create_proc_files_for_tasks(void) {
 }
 
 static void timer_callback(struct timer_list *t) {
+    spin_lock_irq(&my_lock);
+
     struct task_struct *task;
     struct task_info *info, *tmp;
 
@@ -207,6 +209,8 @@ static void timer_callback(struct timer_list *t) {
 
     // 타이머 재설정
     mod_timer(&timer, jiffies + INTERVAL);
+
+    spin_unlock_irq(&my_lock);
 }
 
 static int __init hw_init(void) {
