@@ -34,11 +34,47 @@ static const struct file_operations memory_fops = {
     .release = pid_info_release,
 };
 
+// 파일에서 PID를 읽어오는 함수
+static int pid_info_show(struct seq_file *m, void *v, const char *type)
+{
+    pid_t pid;
+    struct task_struct *task;
+    
+    // PID 읽기
+    pid = simple_strtol((char *)v, NULL, 10);
+    task = pid_task(find_vpid(pid), PIDTYPE_PID);
+    
+    if (!task) {
+        seq_printf(m, "Invalid PID\n");
+        return 0;
+    }
+    
+    if (strcmp(type, "scheduler") == 0) {
+        // 스케줄러 관련 정보 출력 예시 (간단한 스케줄러 정보 출력)
+        seq_printf(m, "PID: %d, State: %ld\n", pid, task->state);
+        // 실제로는 여기서 스케줄러 정보 등을 출력해야 함
+    } else if (strcmp(type, "memory") == 0) {
+        // 메모리 관련 정보 출력 예시 (간단한 메모리 정보 출력)
+        seq_printf(m, "PID: %d, Memory: %ld kB\n", pid, task->mm->total_vm * 4);  // 예시로 메모리 사용량 출력
+    }
+
+    return 0;
+}
+
+static int pid_info_open(struct inode *inode, struct file *file)
+{
+    return single_open(file, pid_info_show, PDE_DATA(inode));
+}
+
+static int pid_info_release(struct inode *inode, struct file *file)
+{
+    return single_release(inode, file);
+}
 
 MODULE_AUTHOR("Heewon Lim");
 MODULE_DESCRIPTION("System Programming 2024 - 2019147503");
 
-static int __init init(void) {
+static int __init hw_init(void) {
     // hw 디렉토리 생성
     hw_dir = proc_mkdir(HW_DIR, NULL);
     if (!hw_dir) {
@@ -61,12 +97,12 @@ static int __init init(void) {
     }
 
     // PID 관련 파일 생성 (scheduler와 memory에 대해 각각)
-    if (!proc_create_data(SCHEDULER_NAME, 0, scheduler_dir, &scheduler_fops, "scheduler")) {
+    if (!proc_create_data(SCHEDULER_NAME, 0, scheduler_dir, NULL, "scheduler")) {
         pr_err("Failed to create /proc/%s/%s/1234 file\n", HW_DIR, SCHEDULER_NAME);
         return -ENOMEM;
     }
 
-    if (!proc_create_data(MEMORY_NAME, 0, memory_dir, &memory_fops, "memory")) {
+    if (!proc_create_data(MEMORY_NAME, 0, memory_dir, NULL, "memory")) {
         pr_err("Failed to create /proc/%s/%s/1234 file\n", HW_DIR, MEMORY_NAME);
         return -ENOMEM;
     }
@@ -74,7 +110,7 @@ static int __init init(void) {
     return 0; 
 }
 
-static void __exit exit(void) {
+static void __exit hw_exit(void) {
     // /proc 디렉토리와 파일 삭제
     remove_proc_entry(SCHEDULER_NAME, scheduler_dir);
     remove_proc_entry(MEMORY_NAME, memory_dir);
