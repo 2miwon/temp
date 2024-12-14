@@ -195,7 +195,7 @@ static int __init hw_init(void) {
     }
 
     // 타이머 초기화
-    timer_setup(&my_timer, my_timer_callback, 0);
+    timer_setup(&my_timer, timer_callback, 0);
     mod_timer(&my_timer, jiffies + INTERVAL);
 
     pr_info("/proc/%s/%s and /proc/%s/%s created\n", HW_DIR, SCHEDULER_NAME, HW_DIR, MEMORY_NAME);
