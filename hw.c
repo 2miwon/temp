@@ -66,28 +66,21 @@ static void collect_memory_info(struct seq_file *m, struct task_struct *task) {
     }
 }
 
-static void timer_callback(struct timer_list *t) {
+static void create_proc_files_for_tasks(void) {
     struct task_struct *task;
-    struct seq_file *m;
-    char *buf;
-    size_t buf_size = 4096;
+    char proc_name[16]; // 넉넉하게 잡음
 
-    buf = kmalloc(buf_size, GFP_KERNEL);
-    if (!buf) {
-        pr_err("Failed to allocate memory for buffer\n");
-        return;
-    }
-
-    m = (struct seq_file *)buf;
     for_each_process(task) {
         if (task->flags & PF_KTHREAD)
             continue; // 커널 스레드는 제외
 
-        collect_scheduler_info(m, task);
-        collect_memory_info(m, task);
+        snprintf(proc_name, sizeof(proc_name), "%d", task->pid);
+        proc_create_data(proc_name, 0644, scheduler_dir, &scheduler_proc_ops, &task->pid);
     }
+}
 
-    kfree(buf);
+static void timer_callback(struct timer_list *t) {
+    create_proc_files_for_tasks();
 
     // 마지막 수집 시점의 jiffies 저장
     last_collection_jiffies = jiffies;
