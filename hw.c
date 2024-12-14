@@ -182,12 +182,10 @@ static void timer_callback(struct timer_list *t) {
     struct task_info *info, *tmp;
 
     // 기존 리스트 정리
-    mutex_lock(&task_info_mutex);
     list_for_each_entry_safe(info, tmp, &task_info_list, list) {
         list_del(&info->list);
         kfree(info);
     }
-    mutex_unlock(&task_info_mutex);
 
     for_each_process(task) {
         if (task->flags & PF_KTHREAD)
@@ -199,9 +197,7 @@ static void timer_callback(struct timer_list *t) {
 
         collect_scheduler_info(task, info);
 
-        spin_lock_irqsave(&task_info_mutex);
         list_add_tail(&info->list, &task_info_list);
-        spin_lock_irqsave(&task_info_mutex);
     }
 
     // 마지막 수집 시점의 jiffies 저장
