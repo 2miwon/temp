@@ -15,7 +15,6 @@
 #include <linux/spinlock.h>
 #include <linux/interrupt.h>
 #include <linux/vmalloc.h>
-#include <linux/mutex.h>
 
 MODULE_AUTHOR("Heewon Lim");
 MODULE_DESCRIPTION("System Programming 2024 - 2019147503");
@@ -85,7 +84,6 @@ struct memory_info {
     struct list_head list;
 };
 
-// 글로벌 리스트 헤드
 LIST_HEAD(scheduler_info_list);
 LIST_HEAD(memory_info_list);
 
@@ -361,7 +359,6 @@ void remove_files_and_clear_info_list(void) {
 
 void timer_callback(struct timer_list* timer) {
     struct task_struct* task;
-    struct memory_info *mem_info, *mem_tmp;
     char proc_name[16]; // PID 최대 길이
 
     spin_lock_irq(&my_lock);
@@ -419,8 +416,6 @@ static int __init hw_init(void) {
     // 타이머 초기화
     timer_setup(&timer, timer_callback, 0);
     mod_timer(&timer, jiffies);
-
-    pr_info("module inserted\n");
 
     spin_unlock_irq(&my_lock);
     return 0;
