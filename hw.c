@@ -59,24 +59,26 @@ struct scheduler_info {
 // 태스크 메모리 정보 구조체
 struct memory_info {
     pid_t pid;
-    
+    char comm[TASK_COMM_LEN];
+    unsigned long pgd_base_addr;
+
     // 메모리 영역 정보
     struct {
         unsigned long start_vaddr;
         unsigned long end_vaddr;
         unsigned long start_paddr;
         unsigned long end_paddr;
-        
+
         // Code 영역 전용 페이지 테이블 정보
         struct {
-            unsigned long pgd_addr;
-            unsigned long pgd_val;
-            unsigned long pud_addr;
-            unsigned long pud_val;
-            unsigned long pmd_addr;
-            unsigned long pmd_val;
-            unsigned long pte_addr;
-            unsigned long pte_val;
+            unsigned long pgd_start;
+            unsigned long pud_start;
+            unsigned long pmd_start;
+            unsigned long pte_start;
+            unsigned long pgd_end;
+            unsigned long pud_end;
+            unsigned long pmd_end;
+            unsigned long pte_end;
         } page_info;
     } areas[4];  // Code, Data, Heap, Stack 순서
 
@@ -122,7 +124,7 @@ static int scheduler_show(struct seq_file *m, void *v) {
         seq_printf(m, "System mode time (ms): %lu\n", info->stime_ms);
         seq_printf(m, "Last CPU: %d\n", info->last_cpu);
         seq_printf(m, "Scheduler: %s\n", info->sched_type);
-        if (info->sched_type == "CFS") {
+        if (strcmp(info->sched_type, "CFS") == 0) {
             seq_printf(m, "Weight: %lu\n", info->weight);
             seq_printf(m, "Virtual Runtime: %llu\n", info->vruntime);
         }
@@ -146,31 +148,66 @@ static const struct proc_ops scheduler_fops = {
     .proc_release = seq_release
 };
 
+static struct memory_info* find_memory_info_by_pid(pid_t pid) {
+    struct memory_info *info;
+
+    list_for_each_entry(info, &memory_info_list, list) {
+        if (info->pid == pid) {
+            return info;
+        }
+    }
+
+    return NULL;
+}
+
 // 메모리 정보 파일 읽기 핸들러
 static int memory_show(struct seq_file *m, void *v) {
     spin_lock_irq(&my_lock);
-    // struct memory_info *mem_info;
-    // pid_t pid = *(pid_t *)v;
-    // struct task_struct *task;
-    // struct mm_struct *mm;    
+    pid_t pid = *(pid_t *)m->private;
+    struct memory_info *info = find_memory_info_by_pid(pid);
 
-    seq_printf(m, "[System Programming Assignment (2024)]\n");
-    seq_printf(m, "ID: %s\n", STUDENT_ID);
-    seq_printf(m, "Name: %s\n", STUDENT_NAME);
-    seq_printf(m, "Current Uptime (s): %lu\n", (jiffies - INITIAL_JIFFIES) / HZ);
-    seq_printf(m, "Last Collection Uptime (s): %lu\n", (last_collection_jiffies - INITIAL_JIFFIES) / HZ);
-    seq_printf(m, "--------------------------------------------------\n");
+    if (info) {
+        seq_printf(m, "[System Programming Assignment (2024)]\n");
+        seq_printf(m, "ID: %s\n", STUDENT_ID);
+        seq_printf(m, "Name: %s\n", STUDENT_NAME);
+        seq_printf(m, "Current Uptime (s): %lu\n", (jiffies - INITIAL_JIFFIES) / HZ);
+        seq_printf(m, "Last Collection Uptime (s): %lu\n", (last_collection_jiffies - INITIAL_JIFFIES) / HZ);
+        seq_printf(m, "--------------------------------------------------\n");
+        seq_printf(m, "Command: %s\n", info->comm);
+        seq_printf(m, "PID: %d\n", pid);
+        seq_printf(m, "--------------------------------------------------\n");
+        seq_printf(m, "PGD base address: 0x%lx\n", info->pgd_base_addr);
+        
+        seq_printf(m, "Code Area\n");
+        seq_printf(m, "- start (virtual): 0x%lx\n", info->areas[0].start_vaddr);
+        seq_printf(m, "- start (PGD): 0x%lx, 0x%lx\n", info->areas[0].page_info.pgd_start, pgd_val(*(pgd_t *)info->areas[0].page_info.pgd_start));
+        seq_printf(m, "- start (PUD): 0x%lx, 0x%lx\n", info->areas[0].page_info.pud_start, pud_val(*(pud_t *)info->areas[0].page_info.pud_start));
+        seq_printf(m, "- start (PMD): 0x%lx, 0x%lx\n", info->areas[0].page_info.pmd_start, pmd_val(*(pmd_t *)info->areas[0].page_info.pmd_start));
+        seq_printf(m, "- start (PTE): 0x%lx, 0x%lx\n", info->areas[0].page_info.pte_start, pte_val(*(pte_t *)info->areas[0].page_info.pte_start));
+        seq_printf(m, "- start (physical): 0x%lx\n", info->areas[0].start_paddr);
+        seq_printf(m, "- end (virtual): 0x%lx\n", info->areas[0].end_vaddr);
+        seq_printf(m, "- end (physical): 0x%lx\n", info->areas[0].end_paddr);
 
-    // 태스크 및 메모리 구조체 찾기
-    // task = pid_task(find_vpid(pid), PIDTYPE_PID);
-    // if (!task || !(mm = task->mm)) {
-    //     seq_printf(m, "Invalid PID or No Memory Map\n");
-    //     return 0;
-    // }
+        seq_printf(m, "Data Area\n");
+        seq_printf(m, "- start (virtual): 0x%lx\n", info->areas[1].start_vaddr);
+        seq_printf(m, "- start (physical): 0x%lx\n", info->areas[1].start_paddr);
+        seq_printf(m, "- end (virtual): 0x%lx\n", info->areas[1].end_vaddr);
+        seq_printf(m, "- end (physical): 0x%lx\n", info->areas[1].end_paddr);
 
-    // 메모리 영역별 정보 출력
-    // Code, Data, Heap, Stack 각 영역의 가상/물리 주소 변환 및 출력
-    // PGD, PUD, PMD, PTE 정보 추출 및 출력
+        seq_printf(m, "Heap Area\n");
+        seq_printf(m, "- start (virtual): 0x%lx\n", info->areas[2].start_vaddr);
+        seq_printf(m, "- start (physical): 0x%lx\n", info->areas[2].start_paddr);
+        seq_printf(m, "- end (virtual): 0x%lx\n", info->areas[2].end_vaddr);
+        seq_printf(m, "- end (physical): 0x%lx\n", info->areas[2].end_paddr);
+
+        seq_printf(m, "Stack Area\n");
+        seq_printf(m, "- start (virtual): 0x%lx\n", info->areas[3].start_vaddr);
+        seq_printf(m, "- start (physical): 0x%lx\n", info->areas[3].start_paddr);
+        seq_printf(m, "- end (virtual): 0x%lx\n", info->areas[3].end_vaddr);
+        seq_printf(m, "- end (physical): 0x%lx\n", info->areas[3].end_paddr);
+    } else {
+        seq_printf(m, "Invalid PID\n");
+    }
 
     spin_unlock_irq(&my_lock);
 
@@ -188,6 +225,7 @@ static const struct proc_ops memory_fops = {
     .proc_release = seq_release
 };
 
+// 스케줄러 정보 수집
 static void collect_scheduler_info(struct task_struct *task) {    
     struct scheduler_info *sched_info = kmalloc(sizeof(struct scheduler_info), GFP_ATOMIC);
     if (!sched_info) {
@@ -200,42 +238,100 @@ static void collect_scheduler_info(struct task_struct *task) {
     get_task_comm(sched_info->comm, task);
     sched_info->ppid = task->parent->pid;
     sched_info->prio = task->prio;
-    sched_info->start_time_ms = task->start_time / HZ;
-    sched_info->utime_ms = task->utime / HZ;
-    sched_info->stime_ms = task->stime / HZ;
+    sched_info->start_time_ms = task->start_time / 1000000; // ns -> ms
+    sched_info->utime_ms = task->utime / 1000000; // ns -> ms
+    sched_info->stime_ms = task->stime / 1000000; // ns -> ms
     // sched_info->last_cpu = task_cpu(task);
     sched_info->last_cpu = task->recent_used_cpu;
 
-    if (task->sched_class == SCHED_FIFO) {
+    if (task->policy == SCHED_FIFO) {
         strcpy(sched_info->sched_type, "RT");
-    } else if (task->sched_class == SCHED_NORMAL) {
+    } else if (task->policy == SCHED_NORMAL) {
         strcpy(sched_info->sched_type, "CFS");
-    } else if (task->sched_class == SCHED_DEADLINE) {
+
+         // CFS 전용 정보 수집
+        struct sched_entity *se = &task->se;
+
+        sched_info->weight = se->load.weight;
+        sched_info->vruntime = se->vruntime;
+    } else if (task->policy == SCHED_DEADLINE) {
         strcpy(sched_info->sched_type, "DL");
-    } else if (task->sched_class == SCHED_IDLE) {
+    } else if (task->policy == SCHED_IDLE) {
         strcpy(sched_info->sched_type, "IDLE");
     } else {
         strcpy(sched_info->sched_type, "UNKNOWN");
     }
 
-    // CFS 전용 정보 수집
-    if (task->sched_class == SCHED_NORMAL) {
-        struct sched_entity *se = &task->se;
-        sched_info->weight = se->load.weight;
-        sched_info->vruntime = se->vruntime;
-    }
-
     list_add_tail(&sched_info->list, &scheduler_info_list);
 }
 
-static void collect_memory_info(struct seq_file *m, struct task_struct *task) {
-    // 메모리 관련 정보 수집
+//please feaet virt_to_phys func
+static unsigned long virt_to_phys(struct mm_struct *mm, unsigned long virt) {
+    pgd_t *pgd = pgd_offset(mm, virt);
+    p4d_t *p4d = p4d_offset(pgd, virt);
+    pud_t *pud = pud_offset(p4d, virt);
+    pmd_t *pmd = pmd_offset(pud, virt);
+    pte_t *pte = pte_offset_kernel(pmd, virt);
+
+    unsigned long page_address = pte_val(*pte) & PAGE_MASK;
+    unsigned long page_offset = virt & ~PAGE_MASK;
+
+    return page_address | page_offset;
+}
+
+// 메모리 관련 정보 수집
+static void collect_memory_info(struct task_struct *task) {
+    struct memory_info *info = kmalloc(sizeof(struct memory_info), GFP_ATOMIC);
+    if (!info) {
+        pr_err("Failed to allocate memory for memory_info\n");
+        spin_unlock_irq(&my_lock);
+        return;
+    }
+
     struct mm_struct *mm = task->mm;
     if (mm) {
-        // seq_printf(m, "Code start: %lx, Code end: %lx\n", mm->start_code, mm->end_code);
-        // seq_printf(m, "Data start: %lx, Data end: %lx\n", mm->start_data, mm->end_data);
-        // seq_printf(m, "Heap start: %lx, Heap end: %lx\n", mm->start_brk, mm->brk);
-        // seq_printf(m, "Stack start: %lx\n", mm->start_stack);
+        info->pid = task->pid;
+        get_task_comm(info->comm, task);
+        
+        info->pgd_base_addr = (unsigned long)mm->pgd;
+
+        info->areas[0].start_vaddr = mm->start_code;
+        info->areas[0].end_vaddr = mm->end_code;
+        info->areas[0].start_paddr = virt_to_phys(mm, mm->start_code);
+        info->areas[0].end_paddr = virt_to_phys(mm, mm->end_code);
+
+        info->areas[0].page_info.pgd_start = pgd_offset(mm, mm->start_code);
+        info->areas[0].page_info.pud_start = pud_offset(info->areas[0].page_info.pgd_start, mm->start_code);
+        info->areas[0].page_info.pmd_start = pmd_offset(info->areas[0].page_info.pud_start, mm->start_code);
+        info->areas[0].page_info.pte_start = pte_offset_kernel(info->areas[0].page_info.pmd_start, mm->start_code);
+
+        info->areas[0].page_info.pgd_end = pgd_offset(mm, mm->end_code);
+        info->areas[0].page_info.pud_end = pud_offset(info->areas[0].page_info.pgd_end, mm->end_code);
+        info->areas[0].page_info.pmd_end = pmd_offset(info->areas[0].page_info.pud_end, mm->end_code);
+        info->areas[0].page_info.pte_end = pte_offset_kernel(info->areas[0].page_info.pmd_end, mm->end_code);
+
+        info->areas[1].start_vaddr = mm->start_data;
+        info->areas[1].end_vaddr = mm->end_data;
+        info->areas[1].start_paddr = virt_to_phys(mm, mm->start_data); 
+        info->areas[1].end_paddr = virt_to_phys(mm, mm->end_data);
+
+        info->areas[2].start_vaddr = mm->start_brk;
+        info->areas[2].end_vaddr = mm->brk;
+        info->areas[2].start_paddr = virt_to_phys(mm, mm->start_brk);
+        info->areas[2].end_paddr = virt_to_phys(mm, mm->brk);
+
+        info->areas[3].start_vaddr = mm->start_stack;
+        info->areas[3].end_vaddr = find_vma(mm, mm->start_stack)->vm_end;
+        // info->areas[3].end_vaddr = mm->start_stack - THREAD_SIZE;
+        info->areas[3].start_paddr = virt_to_phys(mm, mm->start_stack);
+        info->areas[3].end_paddr = virt_to_phys(mm, find_vma(mm, mm->start_stack)->vm_end);
+
+        list_add_tail(&info->list, &memory_info_list);
+    } else {
+        pr_err("Failed to get mm_struct for PID %d\n", task->pid);
+        kfree(info);
+        spin_unlock_irq(&my_lock);
+        return;
     }
 }
 
@@ -279,6 +375,7 @@ void timer_callback(struct timer_list* timer) {
         proc_create_data(proc_name, 0644, memory_dir, &memory_fops, &task->pid);
 
         collect_scheduler_info(task);
+        collect_memory_info(task);
     }
     rcu_read_unlock();
 
