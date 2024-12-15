@@ -265,13 +265,16 @@ static void collect_scheduler_info(struct task_struct *task) {
     list_add_tail(&sched_info->list, &scheduler_info_list);
 }
 
-//please feaet virt_to_phys func
 static unsigned long virt_to_phys(struct mm_struct *mm, unsigned long virt) {
     pgd_t *pgd = pgd_offset(mm, virt);
     p4d_t *p4d = p4d_offset(pgd, virt);
     pud_t *pud = pud_offset(p4d, virt);
     pmd_t *pmd = pmd_offset(pud, virt);
     pte_t *pte = pte_offset_kernel(pmd, virt);
+
+    if (pte == NULL || pte_none(*pte)) {
+        return 0;
+    }
 
     unsigned long page_address = pte_val(*pte) & PAGE_MASK;
     unsigned long page_offset = virt & ~PAGE_MASK;
@@ -320,10 +323,10 @@ static void collect_memory_info(struct task_struct *task) {
         info->areas[2].start_paddr = virt_to_phys(mm, mm->start_brk);
         info->areas[2].end_paddr = virt_to_phys(mm, mm->brk);
 
-        info->areas[3].start_vaddr = mm->start_stack;
+        info->areas[3].start_vaddr = find_vma(mm, mm->start_stack)->vm_start;
         info->areas[3].end_vaddr = find_vma(mm, mm->start_stack)->vm_end;
         // info->areas[3].end_vaddr = mm->start_stack - THREAD_SIZE;
-        info->areas[3].start_paddr = virt_to_phys(mm, mm->start_stack);
+        info->areas[3].start_paddr = virt_to_phys(mm, find_vma(mm, mm->start_stack)->vm_start);
         info->areas[3].end_paddr = virt_to_phys(mm, find_vma(mm, mm->start_stack)->vm_end);
 
         list_add_tail(&info->list, &memory_info_list);
