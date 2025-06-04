@@ -7,10 +7,6 @@ clean:
 torch:
 	python3 run_Torch_ResNet18.py
 
-triton:
-	python3 run_Triton_ResNet18.py
-
-## run the script below in the hw6-example directory
 test-triton-relu:
 	python3 run_TritonReLU_ResNet18.py
 
